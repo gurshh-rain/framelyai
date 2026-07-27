@@ -91,24 +91,36 @@ const QUESTIONS = [
 ];
 
 /* ---------------- buttons ---------------- */
-function ButtonPrimary({ children, style = {}, disabled, ...rest }) {
+// Mirrors the ButtonPrimary on the landing page — supports both <button>
+// and (via href) Next.js <Link>. The interview page's "Back to home"
+// button needs to be a real link, not a <button> that fires history.back.
+function ButtonPrimary({ children, style = {}, disabled, href, ...rest }) {
+  const sharedStyle = {
+    backgroundColor: disabled ? colors.hairline : colors.primary,
+    color: disabled ? colors.inkMuted : colors.onPrimary,
+    ...type.button,
+    borderRadius: radius.pill,
+    padding: "12px 20px",
+    border: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    cursor: disabled ? "not-allowed" : "pointer",
+    textDecoration: "none",
+    ...style,
+  };
+  if (href) {
+    return (
+      <Link href={href} className="framely-btn-primary framely-focus" style={sharedStyle}>
+        {children}
+      </Link>
+    );
+  }
   return (
     <button
       className="framely-btn-primary framely-focus"
       disabled={disabled}
-      style={{
-        backgroundColor: disabled ? colors.hairline : colors.primary,
-        color: disabled ? colors.inkMuted : colors.onPrimary,
-        ...type.button,
-        borderRadius: radius.pill,
-        padding: "12px 20px",
-        border: "none",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        cursor: disabled ? "not-allowed" : "pointer",
-        ...style,
-      }}
+      style={sharedStyle}
       {...rest}
     >
       {children}
@@ -116,23 +128,32 @@ function ButtonPrimary({ children, style = {}, disabled, ...rest }) {
   );
 }
 
-function ButtonSecondary({ children, style = {}, ...rest }) {
+function ButtonSecondary({ children, style = {}, href, ...rest }) {
+  const sharedStyle = {
+    backgroundColor: colors.surface1,
+    color: colors.ink,
+    ...type.button,
+    borderRadius: radius.pill,
+    padding: "12px 20px",
+    border: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    cursor: "pointer",
+    textDecoration: "none",
+    ...style,
+  };
+  if (href) {
+    return (
+      <Link href={href} className="framely-btn-secondary framely-focus" style={sharedStyle}>
+        {children}
+      </Link>
+    );
+  }
   return (
     <button
       className="framely-btn-secondary framely-focus"
-      style={{
-        backgroundColor: colors.surface1,
-        color: colors.ink,
-        ...type.button,
-        borderRadius: radius.pill,
-        padding: "12px 20px",
-        border: "none",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        cursor: "pointer",
-        ...style,
-      }}
+      style={sharedStyle}
       {...rest}
     >
       {children}
@@ -348,6 +369,7 @@ export default function InterviewPage() {
   const [visionConnected, setVisionConnected] = useState(false);
   const [expandedEvent, setExpandedEvent] = useState(null);
   const [expandedQuestion, setExpandedQuestion] = useState(null);
+  const [expandedQuestionEvent, setExpandedQuestionEvent] = useState(null); // separate from expandedEvent so per-question screenshots don't share state with the session-wide timeline
   const [visionError, setVisionError] = useState(null);
 
   // Opens the socket once the interview actually starts, and keeps it open
@@ -436,6 +458,7 @@ export default function InterviewPage() {
 
   const [cameraStatus, setCameraStatus] = useState("checking"); // "checking" | "ready" | "blocked"
   const [micStatus, setMicStatus] = useState("checking");
+  const [finalizing, setFinalizing] = useState(false); // true between finishAnswer() and the next render — prevents double-clicks racing into end_question
 
   // camera + mic acquisition — real getUserMedia, no backend needed.
   // Requests both together first (so the preview and audio stay in sync as
@@ -638,18 +661,25 @@ export default function InterviewPage() {
   }
 
   async function finishAnswer() {
+    if (finalizing) return; // guard against double-clicks while a previous answer is still being transcribed/closed
     setRecording(false);
-    sendEndQuestion(qIndex);
-    await transcribeCurrentAnswer();
-    if (qIndex < QUESTIONS.length - 1) {
-      setQIndex((i) => i + 1);
-    } else {
-      requestDeliverySummary();
-      setPage("complete");
+    setFinalizing(true);
+    try {
+      sendEndQuestion(qIndex);
+      await transcribeCurrentAnswer();
+      if (qIndex < QUESTIONS.length - 1) {
+        setQIndex((i) => i + 1);
+      } else {
+        requestDeliverySummary();
+        setPage("complete");
+      }
+    } finally {
+      setFinalizing(false);
     }
   }
 
   function endInterviewEarly() {
+    if (finalizing) return; // same guard — the End-interview button races with finishAnswer's teardown
     setRecording(false);
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
@@ -663,10 +693,16 @@ export default function InterviewPage() {
   function practiceAgain() {
     setPage("setup");
     setQIndex(0);
+    setRecording(false);
     setTranscripts({});
     setTranscribeError(null);
     setDeliverySummary(null);
     setQuestionResults({});
+    setLiveMetrics(null);
+    setVisionError(null);
+    setExpandedEvent(null);
+    setExpandedQuestion(null);
+    setExpandedQuestionEvent(null);
     session.reset();
   }
 
@@ -697,7 +733,7 @@ export default function InterviewPage() {
           </div>
         )}
         {page === "active" ? (
-          <ButtonSecondary style={{ padding: "9px 16px" }} onClick={endInterviewEarly}>
+          <ButtonSecondary style={{ padding: "9px 16px" }} onClick={endInterviewEarly} disabled={finalizing}>
             <X size={15} /> End interview
           </ButtonSecondary>
         ) : (
@@ -791,6 +827,18 @@ export default function InterviewPage() {
                   <video ref={attachVideo} autoPlay muted playsInline className="framely-mirror w-full h-full object-cover" />
                 )}
 
+                {/* Mic-only failure during the active interview — the camera
+                    still works, so render the video normally but show a
+                    small overlay so the user knows their answers won't be
+                    transcribed. */}
+                {cameraStatus === "ready" && micStatus === "blocked" && (
+                  <div className="absolute bottom-3 left-0 right-0 flex justify-center px-4">
+                    <span style={{ ...type.micro, backgroundColor: colors.surface2, color: colors.warn, padding: "5px 10px", borderRadius: radius.pill }}>
+                      Microphone blocked — answers won&apos;t be transcribed
+                    </span>
+                  </div>
+                )}
+
                 <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3">
                   {recording ? (
                     <span className="flex items-center gap-1.5" style={{ ...type.micro, color: colors.ink, fontFeatureSettings: featNum }}>
@@ -851,11 +899,11 @@ export default function InterviewPage() {
                 </div>
 
                 {!recording ? (
-                  <ButtonPrimary onClick={startAnswer} disabled={transcribing}>
+                  <ButtonPrimary onClick={startAnswer} disabled={transcribing || finalizing}>
                     <Play size={15} /> Start answer
                   </ButtonPrimary>
                 ) : (
-                  <ButtonPrimary onClick={finishAnswer}>
+                  <ButtonPrimary onClick={finishAnswer} disabled={finalizing}>
                     {qIndex < QUESTIONS.length - 1 ? "Next question" : "Finish interview"} <ArrowRight size={15} />
                   </ButtonPrimary>
                 )}
@@ -872,7 +920,7 @@ export default function InterviewPage() {
 
             <div style={{ backgroundColor: colors.surface1, borderRadius: radius.xl, padding: 20 }}>
               <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 14 }}>Progress</div>
-              {QUESTIONS.map((item, i) => {
+              {QUESTIONS.map((_item, i) => {
                 const status = i < qIndex ? "done" : i === qIndex ? "current" : "upcoming";
                 return (
                   <div
@@ -920,10 +968,33 @@ export default function InterviewPage() {
       )}
 
       {/* ============ COMPLETE ============ */}
-      {page === "complete" && (
+      {page === "complete" && (() => {
+        // Breakdown of flagged events by type. Server-side events are
+        // {looking_away, unstable_head_movement, self_touch, leaning}; we
+        // count and total-duration each so the report actually tells the
+        // user *what* kept getting flagged, not just a flat "12 total".
+        const eventsByType = (events) => {
+          const out = {};
+          for (const e of events || []) {
+            out[e.type] = out[e.type] || { count: 0, totalSeconds: 0 };
+            out[e.type].count += 1;
+            out[e.type].totalSeconds += e.duration || 0;
+          }
+          return out;
+        };
+        // Use the vision model's reported duration when we have it (sum of
+        // actual question recording time, excluding the gaps while the
+        // user sits between answers); fall back to wall-clock only as a
+        // last resort.
+        const recordedLabel = deliverySummary
+          ? formatTimestamp(deliverySummary.duration_seconds)
+          : session.label;
+        const overall = eventsByType(deliverySummary?.events);
+
+        return (
         <section className="max-w-3xl mx-auto px-6 py-20 text-center">
           <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 12 }}>Session complete</div>
-          <h1 style={{ ...type.displayLG }}>Nice work. Here's how it looked.</h1>
+          <h1 style={{ ...type.displayLG }}>Nice work. Here&apos;s how it looked.</h1>
           <p style={{ ...type.bodyLg, color: colors.inkMuted, marginTop: 12 }}>
             {deliverySummary
               ? "From the vision model, for this whole session."
@@ -931,112 +1002,176 @@ export default function InterviewPage() {
               ? `Vision service error: ${visionError}`
               : visionConnected
               ? "Waiting on the final scores from the vision service..."
-              : "Vision service isn't connected — showing sample data so you can see the layout."}
+              : "Vision service isn't connected — connect it on port 8000 to see real scores."}
           </p>
 
           <div style={{ backgroundColor: colors.surface1, borderRadius: radius.xl, padding: 32, marginTop: 32, textAlign: "left" }}>
             <div className="flex items-center justify-between">
               <span style={{ ...type.caption, color: colors.inkMuted }}>Eye contact</span>
-              <span style={{ ...type.caption, color: colors.inkMuted, fontFeatureSettings: featNum }}>{QUESTIONS.length} questions · {session.label}</span>
+              <span style={{ ...type.caption, color: colors.inkMuted, fontFeatureSettings: featNum }}>
+                {QUESTIONS.length} questions · {recordedLabel} recorded
+              </span>
             </div>
             <div style={{ ...type.displayMD, fontSize: 44, marginTop: 8, marginBottom: 24, fontFeatureSettings: featNum }}>
-              {deliverySummary ? deliverySummary.eye_contact_percentage : 85}
+              {deliverySummary ? deliverySummary.eye_contact_percentage : "—"}
               <span style={{ color: colors.inkMuted, fontSize: 20 }}>%</span>
             </div>
 
-            {/* Only categories the vision script actually measures. No
-                posture/gestures (needs a pose model this script doesn't
-                have) and no content score (needs an LLM pass over the
-                transcript — see the raw transcripts below instead). */}
-
             {/* Expression: NOT a 0-100 bar. Nobody smiles for a whole
                 interview, so "more" isn't "better" — this is a range check
-                against a reasonable baseline, not a score. */}
+                against a reasonable baseline, not a score. When no vision
+                data is available, show — instead of inventing "typical
+                amount of smiling (14%)." */}
             <div className="flex items-center justify-between mb-4 pb-4" style={{ borderBottom: `1px solid ${colors.hairline}` }}>
               <span style={{ ...type.bodySm, color: colors.inkMuted }}>Expression</span>
               <span style={{ ...type.bodySm, color: colors.ink, textAlign: "right" }}>
-                {deliverySummary ? deliverySummary.smile_label : "typical amount of smiling"}
-                <span style={{ color: colors.inkMuted, fontFeatureSettings: featNum }}>
-                  {" "}({deliverySummary ? deliverySummary.smile_percentage : 14}% of the time)
-                </span>
+                {deliverySummary
+                  ? deliverySummary.smile_label
+                  : "—"}
+                {deliverySummary && (
+                  <span style={{ color: colors.inkMuted, fontFeatureSettings: featNum }}>
+                    {" "}({deliverySummary.smile_percentage}% of the time)
+                  </span>
+                )}
               </span>
             </div>
 
-            {(deliverySummary
-              ? [["Good framing", deliverySummary.good_framing_percentage]]
-              : [["Good framing", 88]]
-            ).map(([label, val], i) => (
+            {/* Bars for the other measurable categories the vision model
+                actually reports. Each one falls back to "—" when the
+                vision service hasn't supplied data, instead of inventing
+                numbers. */}
+            {[
+              ["Good framing", deliverySummary?.good_framing_percentage],
+              ["Hands visible", deliverySummary?.hands_visible_percentage],
+            ].map(([label, val], i) => (
               <div key={i} className="mb-4">
                 <div className="flex justify-between mb-1.5" style={{ ...type.bodySm, color: colors.inkMuted }}>
-                  <span>{label}</span><span style={{ color: colors.ink, fontFeatureSettings: featNum }}>{val}%</span>
+                  <span>{label}</span>
+                  <span style={{ color: colors.ink, fontFeatureSettings: featNum }}>
+                    {val == null ? "—" : `${val}%`}
+                  </span>
                 </div>
                 <div style={{ height: 4, backgroundColor: colors.hairline, borderRadius: radius.full }}>
-                  <div style={{ height: 4, borderRadius: radius.full, width: `${val}%`, backgroundColor: val < 60 ? colors.warn : colors.primary }} />
+                  <div style={{
+                    height: 4, borderRadius: radius.full,
+                    width: val == null ? 0 : `${val}%`,
+                    backgroundColor: val != null && val < 60 ? colors.warn : colors.primary,
+                    transition: "width 300ms ease",
+                  }} />
                 </div>
               </div>
             ))}
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-5" style={{ borderTop: `1px solid ${colors.hairline}` }}>
-              <div>
-                <div style={{ ...type.caption, color: colors.inkMuted }}>Blink rate</div>
-                <div style={{ ...type.bodySm, color: colors.ink, marginTop: 4, fontFeatureSettings: featNum }}>
-                  {deliverySummary ? `${deliverySummary.blink_rate_per_minute}/min` : "— /min"}
-                </div>
-              </div>
-              <div>
-                <div style={{ ...type.caption, color: colors.inkMuted }}>Flagged moments</div>
-                <div style={{ ...type.bodySm, color: colors.ink, marginTop: 4, fontFeatureSettings: featNum }}>
-                  {deliverySummary ? `${deliverySummary.events?.length ?? 0} total` : "—"}
-                </div>
-              </div>
-              <div>
-                <div style={{ ...type.caption, color: colors.inkMuted }}>Hands visible</div>
-                <div style={{ ...type.bodySm, color: colors.ink, marginTop: 4, fontFeatureSettings: featNum }}>
-                  {deliverySummary ? `${deliverySummary.hands_visible_percentage}%` : "—"}
-                </div>
-              </div>
-              <div>
-                <div style={{ ...type.caption, color: colors.inkMuted }}>Gesturing</div>
-                <div style={{ ...type.bodySm, color: colors.ink, marginTop: 4 }}>
-                  {deliverySummary ? deliverySummary.gesture_level : "—"}
-                </div>
-              </div>
-              {deliverySummary?.level_shoulders_percentage != null && (
+            {/* Lighting/shoulders: only meaningful when the pose model
+                actually got a read, so we render them only when there's
+                data — otherwise they'd sit at "—" and look like a missing
+                field. */}
+            {deliverySummary && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-5" style={{ borderTop: `1px solid ${colors.hairline}` }}>
                 <div>
-                  <div style={{ ...type.caption, color: colors.inkMuted }}>Shoulders level</div>
+                  <div style={{ ...type.caption, color: colors.inkMuted }}>Blink rate</div>
                   <div style={{ ...type.bodySm, color: colors.ink, marginTop: 4, fontFeatureSettings: featNum }}>
-                    {deliverySummary.level_shoulders_percentage}%
+                    {deliverySummary.blink_rate_per_minute}/min
                   </div>
                 </div>
-              )}
-              <div>
-                <div style={{ ...type.caption, color: colors.inkMuted }}>Self-touch moments</div>
-                <div style={{ ...type.bodySm, color: colors.ink, marginTop: 4, fontFeatureSettings: featNum }}>
-                  {deliverySummary ? deliverySummary.self_touch_event_count : "—"}
+                <div>
+                  <div style={{ ...type.caption, color: colors.inkMuted }}>Gesturing</div>
+                  <div style={{ ...type.bodySm, color: colors.ink, marginTop: 4 }}>
+                    {deliverySummary.gesture_level}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ ...type.caption, color: colors.inkMuted }}>Self-touch moments</div>
+                  <div style={{ ...type.bodySm, color: colors.ink, marginTop: 4, fontFeatureSettings: featNum }}>
+                    {deliverySummary.self_touch_event_count}
+                  </div>
+                </div>
+                {deliverySummary.level_shoulders_percentage != null && (
+                  <div>
+                    <div style={{ ...type.caption, color: colors.inkMuted }}>Shoulders level</div>
+                    <div style={{ ...type.bodySm, color: colors.ink, marginTop: 4, fontFeatureSettings: featNum }}>
+                      {deliverySummary.level_shoulders_percentage}%
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Per-type event breakdown — replaces the old "12 total"
+                count with the actual kinds of moments that were flagged,
+                so a user can tell at a glance whether they kept looking
+                away vs. fidgeting vs. touching their face. */}
+            {deliverySummary && Object.keys(overall).length > 0 && (
+              <div className="mt-6 pt-5" style={{ borderTop: `1px solid ${colors.hairline}` }}>
+                <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 10 }}>Flagged moments</div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    ["looking_away", "Look-aways"],
+                    ["unstable_head_movement", "Head jitter"],
+                    ["self_touch", "Self-touch"],
+                    ["leaning", "Leaning"],
+                  ].map(([key, label]) => {
+                    const stat = overall[key];
+                    if (!stat) return null;
+                    return (
+                      <div key={key} className="flex items-baseline justify-between" style={{ padding: "6px 0" }}>
+                        <span style={{ ...type.bodySm, color: colors.inkMuted }}>{label}</span>
+                        <span style={{ ...type.bodySm, color: colors.ink, fontFeatureSettings: featNum }}>
+                          {stat.count} · {Math.round(stat.totalSeconds)}s
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
+            )}
           </div>
+
+          {/* Server-side feedback lines (feedback_text in interview_cv.py)
+              are already attached to summary.feedback — surface them so
+              the user gets the model's natural-language read instead of
+              just numbers. */}
+          {deliverySummary?.feedback?.length > 0 && (
+            <div style={{ backgroundColor: colors.surface1, borderRadius: radius.xl, padding: 24, marginTop: 24, textAlign: "left" }}>
+              <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 10 }}>Notes from the model</div>
+              {deliverySummary.feedback.map((line, i) => (
+                <p key={i} style={{ ...type.body, color: colors.ink, marginBottom: i < deliverySummary.feedback.length - 1 ? 6 : 0 }}>
+                  {line}
+                </p>
+              ))}
+            </div>
+          )}
 
           <p style={{ ...type.caption, color: colors.inkMuted, marginTop: 16, textAlign: "left" }}>
             Posture here is shoulder-level only (no back/hip data), and self-touch detection is proximity-based —
-            it flags a hand lingering near your mouth, chin, eyes, or hair, but can't tell what you were actually
-            doing. Answers below also aren't scored for content yet — that's your raw transcript, unscored.
+            it flags a hand lingering near your mouth, chin, eyes, or hair, but can&apos;t tell what you were actually
+            doing. Answers below also aren&apos;t scored for content yet — that&apos;s your raw transcript, unscored.
           </p>
 
           {/* Every flagged look-away or sustained head-movement moment for
-              the whole session, with a screenshot where one was captured. */}
-          {deliverySummary && (
+              the whole session, with a screenshot where one was captured.
+              Uses its own expandedEvent* state so it doesn't share IDs
+              with the per-question timelines below (event UUIDs are
+              globally unique within a session, but clicking one in the
+              per-question view was toggling the wrong panel). */}
+          {deliverySummary?.events?.length > 0 && (
             <div style={{ backgroundColor: colors.surface1, borderRadius: radius.xl, padding: 24, marginTop: 24, textAlign: "left" }}>
               <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 4 }}>Timeline</div>
               <p style={{ ...type.body, color: colors.inkMuted, marginBottom: 8 }}>
                 Click a moment to see the frame it happened on.
               </p>
-              <EventTimeline events={deliverySummary.events} expandedId={expandedEvent} onToggle={(id) => setExpandedEvent(expandedEvent === id ? null : id)} />
+              <EventTimeline
+                events={deliverySummary.events}
+                expandedId={expandedEvent}
+                onToggle={(id) => setExpandedEvent(expandedEvent === id ? null : id)}
+              />
             </div>
           )}
 
-          {/* Per-question breakdown — same stats, scoped to one answer at a time. */}
+          {/* Per-question breakdown — each card keeps its own screenshot
+              expansion state via expandedQuestionEvent so opening a
+              per-question event doesn't open (or close) the session
+              timeline's screenshot. */}
           {Object.keys(questionResults).length > 0 && (
             <div style={{ marginTop: 24, textAlign: "left" }}>
               <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 12 }}>By question</div>
@@ -1044,6 +1179,7 @@ export default function InterviewPage() {
                 const result = questionResults[i];
                 if (!result) return null;
                 const isOpen = expandedQuestion === i;
+                const localExpanded = expandedQuestionEvent; // shared across per-question cards is fine here — only one card is open at a time
                 return (
                   <div key={i} style={{ backgroundColor: colors.surface1, borderRadius: radius.xl, marginBottom: 10, overflow: "hidden" }}>
                     <button
@@ -1082,7 +1218,11 @@ export default function InterviewPage() {
                             </div>
                           ))}
                         </div>
-                        <EventTimeline events={result.events} expandedId={expandedEvent} onToggle={(id) => setExpandedEvent(expandedEvent === id ? null : id)} />
+                        <EventTimeline
+                          events={result.events}
+                          expandedId={localExpanded}
+                          onToggle={(id) => setExpandedQuestionEvent(localExpanded === id ? null : id)}
+                        />
                       </div>
                     )}
                   </div>
@@ -1108,12 +1248,11 @@ export default function InterviewPage() {
 
           <div className="flex items-center justify-center gap-3 mt-10">
             <ButtonSecondary onClick={practiceAgain}>Practice again</ButtonSecondary>
-            <Link href="/" style={{ textDecoration: "none" }}>
-              <ButtonPrimary>Back to home <ArrowRight size={15} /></ButtonPrimary>
-            </Link>
+            <ButtonPrimary href="/">Back to home <ArrowRight size={15} /></ButtonPrimary>
           </div>
         </section>
-      )}
+        );
+      })()}
     </div>
   );
 }

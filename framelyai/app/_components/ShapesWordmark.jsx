@@ -12,6 +12,10 @@ import React, { useEffect, useRef } from "react";
   text on a black rect). Anything drawn inside a <g mask="url(#...)"> only
   shows through where that text is white — i.e. only inside the letterforms.
   The shapes drifting inside that group are what you actually see.
+
+  Lives in app/_components/ (underscore prefix → Next.js treats the folder
+  as private, not a route). The previous location at app/components/ had
+  a page.jsx in it, which created an accidental /components route.
 */
 
 const VIEWBOX_W = 1200;

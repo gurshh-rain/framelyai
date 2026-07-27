@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Plus, Minus } from "lucide-react";
 import { useUser } from "../lib/supabase/useUser";
 import { createClient } from "../lib/supabase/client";
-import ShapesWordmark from "./components/page";
+import ShapesWordmark from "./_components/ShapesWordmark";
 
 /* ==========================================================================
    FRAMELY — built against DESIGN-framer.md
@@ -63,7 +63,7 @@ const featNum = feat + ', "tnum" 1';
 const fontImport = `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');`;
 
 /* ---------------- buttons — {components.button-*} ---------------- */
-function ButtonPrimary({ children, style = {}, href, ...rest }) {
+function ButtonPrimary({ children, style = {}, href, ...rest }: { children: React.ReactNode; style?: React.CSSProperties; href?: string; [key: string]: unknown }) {
   const sharedStyle = {
     backgroundColor: colors.primary,
     color: colors.onPrimary,
@@ -92,7 +92,7 @@ function ButtonPrimary({ children, style = {}, href, ...rest }) {
   );
 }
 
-function ButtonSecondary({ children, style = {}, href, ...rest }) {
+function ButtonSecondary({ children, style = {}, href, ...rest }: { children: React.ReactNode; style?: React.CSSProperties; href?: string; [key: string]: unknown }) {
   const sharedStyle = {
     backgroundColor: colors.surface1,
     color: colors.ink,
@@ -122,7 +122,7 @@ function ButtonSecondary({ children, style = {}, href, ...rest }) {
 }
 
 /* ---------------- product mockup tile — {components.product-mockup-tile} ---------------- */
-function MockupTile({ children, style = {}, chrome = true, className = "" }) {
+function MockupTile({ children, style = {}, chrome = true, className = "" }: { children: React.ReactNode; style?: React.CSSProperties; chrome?: boolean; className?: string }) {
   return (
     <div
       className={className}
@@ -147,7 +147,7 @@ function MockupTile({ children, style = {}, chrome = true, className = "" }) {
 }
 
 /* ---------------- gradient spotlight card — {components.gradient-spotlight-card*} ---------------- */
-function SpotlightCard({ variant = "violet", children, style = {} }) {
+function SpotlightCard({ variant = "violet", children, style = {} }: { variant?: "violet" | "magenta" | "orange" | "coral"; children: React.ReactNode; style?: React.CSSProperties }) {
   const bg =
     variant === "magenta" ? colors.gradientMagenta :
     variant === "orange" ? colors.gradientOrange :
@@ -169,7 +169,7 @@ function SpotlightCard({ variant = "violet", children, style = {} }) {
 }
 
 /* ---------------- pricing-tab style pill switcher, repurposed for signals ---------------- */
-function PillTab({ active, children, ...rest }) {
+function PillTab({ active, children, ...rest }: { active: boolean; children: React.ReactNode; [key: string]: unknown }) {
   return (
     <button
       className="framely-focus"
@@ -436,7 +436,7 @@ export default function FramelyLanding() {
                   <span>{label}</span><span style={{ color: colors.ink, fontFeatureSettings: featNum }}>{val}</span>
                 </div>
                 <div style={{ height: 4, backgroundColor: colors.hairline, borderRadius: radius.full }}>
-                  <div style={{ height: 4, borderRadius: radius.full, width: `${val}%`, backgroundColor: val < 80 ? colors.gradientOrange : colors.primary }} />
+                  <div style={{ height: 4, borderRadius: radius.full, width: `${val}%`, backgroundColor: (val as number) < 80 ? colors.gradientOrange : colors.primary }} />
                 </div>
               </div>
             ))}

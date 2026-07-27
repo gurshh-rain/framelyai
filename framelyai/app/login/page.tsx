@@ -32,7 +32,7 @@ const type = {
 };
 const fontImport = `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');`;
 
-function ButtonPrimary({ children, style = {}, disabled, ...rest }) {
+function ButtonPrimary({ children, style = {}, disabled, ...rest }: { children: React.ReactNode; style?: React.CSSProperties; disabled?: boolean; [key: string]: unknown }) {
   return (
     <button
       className="framely-focus"
@@ -87,7 +87,7 @@ function LoginForm() {
   const [errorMsg, setErrorMsg] = useState("");
   const [notice, setNotice] = useState(""); // e.g. "already registered, switched you to login"
 
-  function switchMode(next) {
+  function switchMode(next: "login" | "signup") {
     setMode(next);
     setPassword("");
     setConfirmPassword("");
@@ -97,7 +97,7 @@ function LoginForm() {
     // across the switch so the person sees why they landed on Log in.
   }
 
-  async function handleLogin(e) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setStatus("submitting");
     setErrorMsg("");
@@ -118,7 +118,7 @@ function LoginForm() {
     router.push(next);
   }
 
-  async function handleSignUp(e) {
+  async function handleSignUp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrorMsg("");
     setNotice("");
@@ -218,8 +218,8 @@ function LoginForm() {
             style={{ backgroundColor: colors.surface1, borderRadius: radius.pill, padding: 4 }}
           >
             {[
-              { key: "login", label: "Log in" },
-              { key: "signup", label: "Sign up" },
+              { key: "login" as const, label: "Log in" },
+              { key: "signup" as const, label: "Sign up" },
             ].map((tab) => (
               <button
                 key={tab.key}
