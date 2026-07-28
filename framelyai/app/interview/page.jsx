@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Mic, MicOff, Video, VideoOff, Pause, Play, ArrowRight, X, Check, EyeOff, Activity, ChevronDown, Hand, Move } from "lucide-react";
+import { pickRandomQuestions } from "../../lib/questions";
 
 /* ==========================================================================
    FRAMELY — mock interview page (app/interview/page.tsx)
@@ -81,14 +82,6 @@ function loadPuter() {
   });
   return puterLoadPromise;
 }
-
-const QUESTIONS = [
-  { q: "Tell me about a time you disagreed with a teammate.", tag: "Conflict & collaboration" },
-  { q: "Describe a project that failed. What did you learn?", tag: "Failure & growth" },
-  { q: "Tell me about a time you led without formal authority.", tag: "Leadership" },
-  { q: "Walk me through a decision you'd make differently today.", tag: "Judgment" },
-  { q: "Tell me about a time you had to persuade someone.", tag: "Influence" },
-];
 
 /* ---------------- buttons ---------------- */
 // Mirrors the ButtonPrimary on the landing page — supports both <button>
@@ -425,6 +418,11 @@ function EventTimeline({ events, expandedId, onToggle }) {
 export default function InterviewPage() {
   const [page, setPage] = useState("setup"); // 'setup' | 'active' | 'complete'
   const [qIndex, setQIndex] = useState(0);
+  // Per-session randomized subset of the question pool. The lazy initializer
+  // runs exactly once on mount, so the order is stable for the whole
+  // interview — every qIndex increment advances through THIS set, not the
+  // full pool.
+  const [sessionQuestions] = useState(() => pickRandomQuestions());
   const [recording, setRecording] = useState(false);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
@@ -826,7 +824,7 @@ export default function InterviewPage() {
     try {
       sendEndQuestion(qIndex);
       await transcribeCurrentAnswer();
-      if (qIndex < QUESTIONS.length - 1) {
+      if (qIndex < sessionQuestions.length - 1) {
         setQIndex((i) => i + 1);
       } else {
         // Ask for the session-wide summary, then WAIT for it to land in state
@@ -886,7 +884,7 @@ export default function InterviewPage() {
     session.reset();
   }
 
-  const currentQ = QUESTIONS[qIndex];
+  const currentQ = sessionQuestions[qIndex];
 
   return (
     <div style={{ backgroundColor: colors.canvas, color: colors.ink, fontFamily: "'Inter', sans-serif", fontFeatureSettings: feat }} className="min-h-screen w-full">
@@ -927,7 +925,7 @@ export default function InterviewPage() {
           <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 12 }}>Before you start</div>
           <h1 style={{ ...type.displayLG, maxWidth: 640 }}>Let's check your camera and mic.</h1>
           <p style={{ ...type.bodyLg, color: colors.inkMuted, marginTop: 14, maxWidth: 520 }}>
-            You'll get {QUESTIONS.length} behavioral questions. Answer each on camera — Framely scores delivery
+            You'll get {sessionQuestions.length} behavioral questions. Answer each on camera — Framely scores delivery
             and content together once your backend is connected.
           </p>
 
@@ -980,7 +978,7 @@ export default function InterviewPage() {
                 Start interview <ArrowRight size={16} />
               </ButtonPrimary>
               <p style={{ ...type.micro, color: colors.inkMuted, marginTop: 10, textAlign: "center" }}>
-                {QUESTIONS.length} questions · roughly {QUESTIONS.length * 2} minutes
+                {sessionQuestions.length} questions · roughly {sessionQuestions.length * 2} minutes
               </p>
             </div>
           </div>
@@ -1028,7 +1026,7 @@ export default function InterviewPage() {
                   ) : (
                     <span style={{ ...type.micro, color: colors.inkMuted }}>Not recording</span>
                   )}
-                  <span style={{ ...type.micro, color: colors.inkMuted }}>Question {qIndex + 1} of {QUESTIONS.length}</span>
+                  <span style={{ ...type.micro, color: colors.inkMuted }}>Question {qIndex + 1} of {sessionQuestions.length}</span>
                 </div>
 
                 {recording && (
@@ -1084,7 +1082,7 @@ export default function InterviewPage() {
                   </ButtonPrimary>
                 ) : (
                   <ButtonPrimary onClick={finishAnswer} disabled={finalizing}>
-                    {qIndex < QUESTIONS.length - 1 ? "Next question" : "Finish interview"} <ArrowRight size={15} />
+                    {qIndex < sessionQuestions.length - 1 ? "Next question" : "Finish interview"} <ArrowRight size={15} />
                   </ButtonPrimary>
                 )}
               </div>
@@ -1100,7 +1098,7 @@ export default function InterviewPage() {
 
             <div style={{ backgroundColor: colors.surface1, borderRadius: radius.xl, padding: 20 }}>
               <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 14 }}>Progress</div>
-              {QUESTIONS.map((_item, i) => {
+              {sessionQuestions.map((_item, i) => {
                 const status = i < qIndex ? "done" : i === qIndex ? "current" : "upcoming";
                 return (
                   <div
@@ -1254,7 +1252,7 @@ export default function InterviewPage() {
             <div className="flex items-center justify-between">
               <span style={{ ...type.caption, color: colors.inkMuted }}>Eye contact</span>
               <span style={{ ...type.caption, color: colors.inkMuted, fontFeatureSettings: featNum }}>
-                {QUESTIONS.length} questions · {recordedLabel} recorded
+                {sessionQuestions.length} questions · {recordedLabel} recorded
               </span>
             </div>
             <div style={{ ...type.displayMD, fontSize: 44, marginTop: 8, marginBottom: 24, fontFeatureSettings: featNum }}>
@@ -1420,7 +1418,7 @@ export default function InterviewPage() {
           {Object.keys(questionResults).length > 0 && (
             <div style={{ marginTop: 24, textAlign: "left" }}>
               <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 12 }}>By question</div>
-              {QUESTIONS.map((q, i) => {
+              {sessionQuestions.map((q, i) => {
                 const result = questionResults[i];
                 if (!result) return null;
                 const isOpen = expandedQuestion === i;
@@ -1479,7 +1477,7 @@ export default function InterviewPage() {
           {Object.keys(transcripts).length > 0 && (
             <div style={{ textAlign: "left", marginTop: 24 }}>
               <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 12 }}>Your answers</div>
-              {QUESTIONS.map((item, i) =>
+              {sessionQuestions.map((item, i) =>
                 transcripts[i] ? (
                   <div key={i} style={{ backgroundColor: colors.surface1, borderRadius: radius.md, padding: 18, marginBottom: 10 }}>
                     <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 6 }}>{item.tag}</div>

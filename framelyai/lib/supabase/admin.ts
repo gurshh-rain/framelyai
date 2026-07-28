@@ -12,16 +12,13 @@
 // session's results to a Route Handler, which uses this client to write
 // them under the correct user_id without needing that user's own session.
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { SUPABASE_URL, requireSecretKey } from "./env";
 
 export function createAdminClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SECRET_KEY,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
+  return createSupabaseClient(SUPABASE_URL, requireSecretKey(), {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }

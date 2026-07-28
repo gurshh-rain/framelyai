@@ -9,9 +9,10 @@
 // Next.js requires the file to live at the project root (next to app/),
 // named proxy.ts, exporting either a `proxy` function or a default
 // function. See node_modules/next/dist/docs/01-app/01-getting-started/16-proxy.md.
+import type { NextRequest } from "next/server";
 import { updateSession } from "./lib/supabase/middleware";
 
-export async function proxy(request) {
+export async function proxy(request: NextRequest) {
   return updateSession(request);
 }
 

@@ -6,6 +6,7 @@ import { ArrowRight, ArrowUpRight, Plus, Minus } from "lucide-react";
 import { useUser } from "../lib/supabase/useUser";
 import { createClient } from "../lib/supabase/client";
 import ShapesWordmark from "./_components/ShapesWordmark";
+import { QUESTIONS } from "../lib/questions";
 
 /* ==========================================================================
    FRAMELY — built against DESIGN-framer.md
@@ -196,14 +197,6 @@ const SIGNALS = [
   { key: "gestures", label: "Gestures", metrics: [["Hands visible", "94%"], ["Self-touch gestures", "3"], ["Gesture pace", "natural"]] },
   { key: "expression", label: "Expression", metrics: [["Expressiveness range", "moderate–high"], ["Smile timing", "on-topic"], ["Jaw tension", "low"]] },
   { key: "answer", label: "Answer content", metrics: [["STAR structure", "complete"], ["Filler words", "4"], ["Answer length", "1m 42s"]] },
-];
-
-const QUESTIONS = [
-  { q: "Tell me about a time you disagreed with a teammate.", tag: "Conflict & collaboration" },
-  { q: "Describe a project that failed. What did you learn?", tag: "Failure & growth" },
-  { q: "Tell me about a time you led without formal authority.", tag: "Leadership" },
-  { q: "Walk me through a decision you'd make differently today.", tag: "Judgment" },
-  { q: "Tell me about a time you had to persuade someone.", tag: "Influence" },
 ];
 
 const FAQS = [
