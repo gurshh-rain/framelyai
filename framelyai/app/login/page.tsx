@@ -73,6 +73,26 @@ function GoogleIcon() {
 
 const MIN_PASSWORD_LENGTH = 6;
 
+// Set to true once Google OAuth is enabled in the Supabase dashboard
+// (Authentication → Providers → Google). Until then, the "Continue with
+// Google" button is hidden — clicking it would just bounce Supabase back
+// with an "provider not enabled" error.
+const GOOGLE_SIGN_IN_ENABLED = false;
+
+// Maps raw Supabase error messages to copy that's easier to act on. The
+// library returns generic strings ("Invalid login credentials", "Email not
+// confirmed") — for the common ones we rewrite to something with next steps.
+function friendlyAuthError(raw: string): string {
+  const m = (raw || "").toLowerCase();
+  if (m.includes("invalid login credentials")) return "Incorrect email or password.";
+  if (m.includes("email not confirmed")) return "Please confirm your email first — check your inbox for the link we sent.";
+  if (m.includes("user already registered")) return "That email already has an account. Try logging in instead.";
+  if (m.includes("password")) return raw; // already specific (too short, etc.)
+  if (m.includes("rate limit") || m.includes("email rate")) return "Too many attempts. Wait a minute and try again.";
+  if (m.includes("network") || m.includes("fetch")) return "Couldn't reach the auth server. Check your connection.";
+  return raw || "Something went wrong. Try again.";
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -103,19 +123,27 @@ function LoginForm() {
     setErrorMsg("");
     setNotice("");
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
+      if (error) {
+        setStatus("error");
+        setErrorMsg(friendlyAuthError(error.message));
+        return;
+      }
+      router.push(next);
+    } catch (err) {
+      // Catches network failures, JSON parse errors, and anything else
+      // signInWithPassword might throw that isn't returned as `error`.
+      // Without this, the button would stay stuck on "Signing in..." forever.
       setStatus("error");
       setErrorMsg(
-        error.message.toLowerCase().includes("invalid login credentials")
-          ? "Incorrect email or password."
-          : error.message
+        err instanceof Error && err.message
+          ? `Something went wrong: ${err.message}`
+          : "Couldn't reach the auth server. Check your connection and try again."
       );
-      return;
     }
-    router.push(next);
   }
 
   async function handleSignUp(e: React.FormEvent<HTMLFormElement>) {
@@ -135,54 +163,99 @@ function LoginForm() {
     }
 
     setStatus("submitting");
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
-    });
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+      });
 
-    if (error) {
-      // With email confirmations OFF, Supabase returns a hard error for a
-      // duplicate email instead of the obfuscated-user trick below.
-      if (error.message.toLowerCase().includes("already registered")) {
+      if (error) {
+        // With email confirmations OFF, Supabase returns a hard error for a
+        // duplicate email instead of the obfuscated-user trick below.
+        if (error.message.toLowerCase().includes("already registered")) {
+          setNotice("This email already has an account — log in instead.");
+          switchMode("login");
+          return;
+        }
+        setStatus("error");
+        setErrorMsg(friendlyAuthError(error.message));
+        return;
+      }
+
+      // With email confirmations ON, signing up with an email that's already
+      // registered doesn't error — Supabase returns a fake user object with
+      // an empty `identities` array instead, specifically so this endpoint
+      // can't be used to enumerate real accounts. That empty array is the
+      // one reliable signal that this email is already taken.
+      const alreadyRegistered = data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0;
+      if (alreadyRegistered) {
         setNotice("This email already has an account — log in instead.");
         switchMode("login");
         return;
       }
+
+      if (data.session) {
+        // Email confirmations are OFF, so signUp already returned a live session.
+        router.push(next);
+        return;
+      }
+
+      // Normal path: new account created, confirmation email on its way.
+      setStatus("check-email");
+    } catch (err) {
       setStatus("error");
-      setErrorMsg(error.message);
-      return;
+      setErrorMsg(
+        err instanceof Error && err.message
+          ? `Something went wrong: ${err.message}`
+          : "Couldn't reach the auth server. Check your connection and try again."
+      );
     }
+  }
 
-    // With email confirmations ON, signing up with an email that's already
-    // registered doesn't error — Supabase returns a fake user object with
-    // an empty `identities` array instead, specifically so this endpoint
-    // can't be used to enumerate real accounts. That empty array is the
-    // one reliable signal that this email is already taken.
-    const alreadyRegistered = data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0;
-    if (alreadyRegistered) {
-      setNotice("This email already has an account — log in instead.");
-      switchMode("login");
-      return;
+  async function resendConfirmation() {
+    if (!email) return;
+    setStatus("submitting");
+    setErrorMsg("");
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+      });
+      if (error) {
+        setStatus("error");
+        setErrorMsg(friendlyAuthError(error.message));
+        return;
+      }
+      setStatus("check-email");
+    } catch (err) {
+      setStatus("error");
+      setErrorMsg(
+        err instanceof Error && err.message
+          ? `Something went wrong: ${err.message}`
+          : "Couldn't reach the auth server. Check your connection and try again."
+      );
     }
-
-    if (data.session) {
-      // Email confirmations are OFF, so signUp already returned a live session.
-      router.push(next);
-      return;
-    }
-
-    // Normal path: new account created, confirmation email on its way.
-    setStatus("check-email");
   }
 
   async function signInWithGoogle() {
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
-    });
+    try {
+      const supabase = createClient();
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+      });
+    } catch (err) {
+      setStatus("error");
+      setErrorMsg(
+        err instanceof Error && err.message
+          ? `Google sign-in failed: ${err.message}`
+          : "Google sign-in isn't available right now."
+      );
+    }
   }
 
   const isSignUp = mode === "signup";
@@ -327,7 +400,28 @@ function LoginForm() {
               )}
 
               {status === "error" && (
-                <p style={{ ...type.caption, color: colors.warn, marginTop: 10 }}>{errorMsg}</p>
+                <div style={{ marginTop: 10 }}>
+                  <p style={{ ...type.caption, color: colors.warn, margin: 0 }}>{errorMsg}</p>
+                  {!isSignUp && errorMsg.toLowerCase().includes("confirm your email") && (
+                    <button
+                      type="button"
+                      onClick={resendConfirmation}
+                      className="framely-focus"
+                      style={{
+                        ...type.caption,
+                        background: "transparent",
+                        border: "none",
+                        color: colors.ink,
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                        padding: 0,
+                        marginTop: 6,
+                      }}
+                    >
+                      Resend confirmation email
+                    </button>
+                  )}
+                </div>
               )}
 
               <ButtonPrimary type="submit" disabled={status === "submitting"} style={{ marginTop: 18 }}>
@@ -338,7 +432,7 @@ function LoginForm() {
             </form>
           )}
 
-          {status !== "check-email" && (
+          {GOOGLE_SIGN_IN_ENABLED && status !== "check-email" && (
             <>
               <div className="flex items-center gap-3 my-6">
                 <div style={{ flex: 1, height: 1, backgroundColor: colors.hairlineSoft }} />
