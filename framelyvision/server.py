@@ -115,7 +115,15 @@ async def session_socket(websocket: WebSocket):
 
     try:
         while True:
-            message = await websocket.receive()
+            try:
+                message = await websocket.receive()
+            except WebSocketDisconnect:
+                break
+            except RuntimeError:
+                # Starlette raises this if receive() is called again after a
+                # disconnect has already been observed — treat it the same as
+                # a normal disconnect so the server doesn't crash mid-session.
+                break
 
             if "bytes" in message and message["bytes"] is not None:
                 frame = decode_jpeg(message["bytes"])
@@ -131,7 +139,10 @@ async def session_socket(websocket: WebSocket):
                     if delta.get("status") == "started":
                         screenshots[delta["id"]] = encode_jpeg_b64(frame)
 
-                await websocket.send_json({"type": "metrics", "data": metrics})
+                try:
+                    await websocket.send_json({"type": "metrics", "data": metrics})
+                except (WebSocketDisconnect, RuntimeError):
+                    break
 
             elif "text" in message and message["text"] is not None:
                 try:
@@ -149,7 +160,10 @@ async def session_socket(websocket: WebSocket):
                     if summary is not None:
                         summary["events"] = attach_screenshots(summary["events"], screenshots)
                         summary["feedback"] = feedback_text(summary)
-                    await websocket.send_json({"type": "question_summary", "data": summary})
+                    try:
+                        await websocket.send_json({"type": "question_summary", "data": summary})
+                    except (WebSocketDisconnect, RuntimeError):
+                        break
 
                 elif msg_type == "get_summary":
                     result = session.overall_summary()
@@ -158,12 +172,22 @@ async def session_socket(websocket: WebSocket):
                         result["overall"]["feedback"] = feedback_text(result["overall"])
                         for q in result["questions"]:
                             q["events"] = attach_screenshots(q["events"], screenshots)
-                    await websocket.send_json({"type": "summary", "data": result})
+                    try:
+                        await websocket.send_json({"type": "summary", "data": result})
+                    except (WebSocketDisconnect, RuntimeError):
+                        break
 
     except WebSocketDisconnect:
-        # Session ended without an explicit get_summary — nothing to send
-        # back at this point, but this is where you'd persist the summary
-        # server-side (e.g. write to your DB) if you want a record even for
-        # interviews that weren't finished cleanly.
+        pass
+    except RuntimeError:
+        pass
+
+    # Session ended (clean disconnect, early end, or runaway timeout) —
+    # nothing to send back at this point, but this is where you'd persist
+    # the summary server-side (e.g. write to your DB) if you want a record
+    # even for interviews that weren't finished cleanly.
+    try:
         result = session.overall_summary()
         print("session ended:", result["overall"])
+    except Exception:
+        pass
