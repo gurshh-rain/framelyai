@@ -125,13 +125,26 @@ function LoginForm() {
 
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
         setStatus("error");
         setErrorMsg(friendlyAuthError(error.message));
         return;
       }
+      if (!data?.session) {
+        // Shouldn't happen with a real Supabase auth, but if the SDK
+        // resolves without a session we don't want to silently bounce
+        // the user.
+        setStatus("error");
+        setErrorMsg("Sign-in didn't return a session. Try again.");
+        return;
+      }
+      // Reset to idle BEFORE the navigation so the button doesn't stay
+      // on "Signing in..." if router.push gets redirected (e.g. the
+      // middleware on the next page bounces us back to /login, leaving
+      // this component mounted with submitting=true).
+      setStatus("idle");
       router.push(next);
     } catch (err) {
       // Catches network failures, JSON parse errors, and anything else
@@ -198,6 +211,7 @@ function LoginForm() {
 
       if (data.session) {
         // Email confirmations are OFF, so signUp already returned a live session.
+        setStatus("idle");
         router.push(next);
         return;
       }

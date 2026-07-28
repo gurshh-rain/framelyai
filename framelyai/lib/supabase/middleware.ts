@@ -27,14 +27,20 @@ export async function updateSession(request: NextRequest) {
 
   // IMPORTANT: don't add any logic between createServerClient and this call.
   // A simple mistake here can cause the session to randomly log users out.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  // Use getClaims() instead of getUser() for the auth gate. getClaims()
+  // validates the JWT signature locally (against the project's JWKS, no
+  // extra network hop to /auth/v1/) so it never bounces a logged-in user
+  // just because the Auth server had a transient hiccup. getUser() makes a
+  // round-trip on every request and was the thing silently returning null
+  // when /interview was bounced back to /login even after a successful sign-in.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const hasSession = !!claimsData?.claims;
 
   // Require sign-in for the interview page. Anyone hitting /interview
   // without a session gets bounced to /login, which reads the `next`
   // param below and sends them back here once they're signed in.
-  if (!user && request.nextUrl.pathname.startsWith("/interview")) {
+  if (!hasSession && request.nextUrl.pathname.startsWith("/interview")) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", request.nextUrl.pathname);
