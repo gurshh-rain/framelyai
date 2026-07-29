@@ -294,22 +294,24 @@ export default function FramelyLanding() {
               className="relative"
               style={{ backgroundColor: colors.canvas, borderRadius: radius.lg, aspectRatio: "16 / 10", overflow: "hidden" }}
             >
-              <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3">
-                <span style={{ ...type.micro, color: colors.inkMuted }}>Q3 · &ldquo;tell me about a conflict&rdquo;</span>
+              <video
+                src="/hero_vid.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                aria-hidden="true"
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+              />
+              <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.55), transparent)" }}>
+                <span style={{ ...type.micro, color: colors.ink }}>Q3 · &ldquo;tell me about a conflict&rdquo;</span>
                 <span style={{ ...type.micro, color: colors.success }}>● live</span>
               </div>
-              <svg viewBox="0 0 400 300" className="absolute inset-0 w-full h-full">
-                <ellipse cx="200" cy="135" rx="58" ry="70" fill="none" stroke={colors.hairline} strokeWidth="1.4" />
-                <path d="M118 300 C 118 228 155 200 200 200 C 245 200 282 228 282 300" fill="none" stroke={colors.hairline} strokeWidth="1.4" />
-                {[[176,108],[224,108],[200,132],[182,156],[218,156]].map(([x,y],i)=>(
-                  <circle key={i} cx={x} cy={y} r="2.6" fill={colors.ink} opacity="0.85" />
-                ))}
-              </svg>
-              <div className="absolute bottom-4 left-4 flex gap-2">
-                <span style={{ ...type.micro, backgroundColor: colors.surface2, padding: "5px 10px", borderRadius: radius.pill }}>
+              <div className="absolute bottom-4 left-4 right-4 flex gap-2">
+                <span style={{ ...type.micro, backgroundColor: colors.surface2, padding: "5px 10px", borderRadius: radius.pill, backdropFilter: "blur(6px)" }}>
                   eye contact <b style={{ color: colors.ink }}>87%</b>
                 </span>
-                <span style={{ ...type.micro, backgroundColor: colors.surface2, padding: "5px 10px", borderRadius: radius.pill }}>
+                <span style={{ ...type.micro, backgroundColor: colors.surface2, padding: "5px 10px", borderRadius: radius.pill, backdropFilter: "blur(6px)" }}>
                   posture <b style={{ color: colors.ink }}>upright</b>
                 </span>
               </div>
@@ -373,30 +375,63 @@ export default function FramelyLanding() {
         </div>
       </section>
 
-      {/* ============ HOW IT WORKS — signal switcher ============ */}
+      {/* ============ HOW IT WORKS, signal switcher with looping demo video ============ */}
       <section id="how" style={{ borderTop: `1px solid ${colors.hairlineSoft}` }}>
         <div className="max-w-6xl mx-auto px-6 py-24">
           <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 16 }}>How it works</div>
           <h2 style={{ ...type.displayLG, maxWidth: 620 }}>Pick a signal, see the exact numbers.</h2>
 
-          <div className="flex flex-wrap gap-2 mt-10">
-            {SIGNALS.map((s, i) => (
-              <PillTab key={s.key} active={i === activeSignal} onClick={() => setActiveSignal(i)}>
-                {s.label}
-              </PillTab>
-            ))}
-          </div>
-
-          <MockupTile className="mt-6" chrome={false} style={{ padding: 28 }}>
-            <div className="grid sm:grid-cols-3 gap-6">
-              {active.metrics.map(([label, val], i) => (
-                <div key={i} style={{ borderTop: `1px solid ${colors.hairline}`, paddingTop: 12 }}>
-                  <div style={{ ...type.caption, color: colors.inkMuted }}>{label}</div>
-                  <div style={{ ...type.displayMD, fontSize: 24, marginTop: 6, fontFeatureSettings: featNum }}>{val}</div>
-                </div>
-              ))}
+          <div className="grid md:grid-cols-[1.1fr_1fr] gap-6 mt-10 items-stretch">
+            <div
+              className="relative"
+              style={{
+                backgroundColor: colors.canvas,
+                borderRadius: radius.xl,
+                overflow: "hidden",
+                aspectRatio: "16 / 10",
+                minHeight: 280,
+                boxShadow: "inset 0 0.5px 0 rgba(255,255,255,0.10), 0 10px 30px rgba(0,0,0,0.25)",
+              }}
+            >
+              <video
+                src="/framelyai_vid.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                aria-hidden="true"
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+              />
+              <div
+                className="absolute bottom-3 left-3 right-3 flex items-center justify-between"
+                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55), transparent)", padding: "12px 12px 4px", marginBottom: -4 }}
+              >
+                <span style={{ ...type.micro, color: colors.ink }}>Live demo</span>
+                <span style={{ ...type.micro, color: colors.success }}>● recording</span>
+              </div>
             </div>
-          </MockupTile>
+
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-wrap gap-2">
+                {SIGNALS.map((s, i) => (
+                  <PillTab key={s.key} active={i === activeSignal} onClick={() => setActiveSignal(i)}>
+                    {s.label}
+                  </PillTab>
+                ))}
+              </div>
+
+              <MockupTile chrome={false} style={{ padding: 28, flex: 1 }}>
+                <div className="grid sm:grid-cols-3 gap-6">
+                  {active.metrics.map(([label, val], i) => (
+                    <div key={i} style={{ borderTop: `1px solid ${colors.hairline}`, paddingTop: 12 }}>
+                      <div style={{ ...type.caption, color: colors.inkMuted }}>{label}</div>
+                      <div style={{ ...type.displayMD, fontSize: 24, marginTop: 6, fontFeatureSettings: featNum }}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+              </MockupTile>
+            </div>
+          </div>
         </div>
       </section>
 
