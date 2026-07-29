@@ -238,7 +238,7 @@ function useElapsed(running) {
 }
 
 function formatTimestamp(seconds) {
-  if (seconds == null) return "—";
+  if (seconds == null) return "n/a";
   const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
   const ss = String(Math.floor(seconds % 60)).padStart(2, "0");
   return `${mm}:${ss}`;
@@ -334,7 +334,7 @@ function OverallSummary({ deliverySummary }) {
                     : colors.ink,
               }}
             >
-              {s.value == null ? "—" : s.value}
+              {s.value == null ? "n/a" : s.value}
               {s.value != null && !s.isText && (
                 <span style={{ color: colors.inkMuted, fontSize: 14, marginLeft: 2 }}>{s.suffix}</span>
               )}
@@ -371,7 +371,7 @@ function OverallSummary({ deliverySummary }) {
 // happened on. Click a row to reveal that screenshot inline.
 function EventTimeline({ events, expandedId, onToggle }) {
   if (!events || events.length === 0) {
-    return <p style={{ ...type.body, color: colors.inkMuted }}>No flagged moments — clean run.</p>;
+    return <p style={{ ...type.body, color: colors.inkMuted }}>No flagged moments. Clean run.</p>;
   }
   return (
     <div>
@@ -811,7 +811,7 @@ export default function InterviewPage() {
       const text = (result && result.text) || (typeof result === "string" ? result : "");
       setTranscripts((prev) => ({ ...prev, [qIndex]: text || "(no speech detected)" }));
     } catch (err) {
-      setTranscribeError("Transcription failed — " + (err?.message || "unknown error"));
+      setTranscribeError("Transcription failed: " + (err?.message || "unknown error"));
     } finally {
       setTranscribing(false);
     }
@@ -925,7 +925,7 @@ export default function InterviewPage() {
           <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 12 }}>Before you start</div>
           <h1 style={{ ...type.displayLG, maxWidth: 640 }}>Let's check your camera and mic.</h1>
           <p style={{ ...type.bodyLg, color: colors.inkMuted, marginTop: 14, maxWidth: 520 }}>
-            You'll get {sessionQuestions.length} behavioral questions. Answer each on camera — Framely scores delivery
+            You'll get {sessionQuestions.length} behavioral questions. Answer each on camera. Framely scores delivery
             and content together once your backend is connected.
           </p>
 
@@ -1012,7 +1012,7 @@ export default function InterviewPage() {
                 {cameraStatus === "ready" && micStatus === "blocked" && (
                   <div className="absolute bottom-3 left-0 right-0 flex justify-center px-4">
                     <span style={{ ...type.micro, backgroundColor: colors.surface2, color: colors.warn, padding: "5px 10px", borderRadius: radius.pill }}>
-                      Microphone blocked — answers won&apos;t be transcribed
+                      Microphone blocked. Answers won&apos;t be transcribed
                     </span>
                   </div>
                 )}
@@ -1127,7 +1127,7 @@ export default function InterviewPage() {
             <div style={{ backgroundColor: colors.surface1, borderRadius: radius.xl, padding: 20 }}>
               <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 10 }}>Transcript</div>
               {recording ? (
-                <p style={{ ...type.body, color: colors.inkMuted }}>Recording — transcript appears once you finish this answer.</p>
+                <p style={{ ...type.body, color: colors.inkMuted }}>Recording. Transcript appears once you finish this answer.</p>
               ) : transcribing ? (
                 <p className="flex items-center gap-2" style={{ ...type.body, color: colors.inkMuted }}>
                   <span style={{ width: 6, height: 6, borderRadius: radius.full, backgroundColor: colors.ink, animation: "framely-pulse 1.2s ease-in-out infinite" }} />
@@ -1180,7 +1180,7 @@ export default function InterviewPage() {
               ? `Vision service error: ${visionError}`
               : visionConnected
               ? "Waiting on the final scores from the vision service..."
-              : "Vision service isn't connected — connect it on port 8000 to see real scores."}
+              : "Vision service isn't connected. Connect it on port 8000 to see real scores."}
           </p>
 
           <OverallSummary deliverySummary={deliverySummary} />
@@ -1256,7 +1256,7 @@ export default function InterviewPage() {
               </span>
             </div>
             <div style={{ ...type.displayMD, fontSize: 44, marginTop: 8, marginBottom: 24, fontFeatureSettings: featNum }}>
-              {deliverySummary ? deliverySummary.eye_contact_percentage : "—"}
+              {deliverySummary ? deliverySummary.eye_contact_percentage : "n/a"}
               <span style={{ color: colors.inkMuted, fontSize: 20 }}>%</span>
             </div>
 
@@ -1270,7 +1270,7 @@ export default function InterviewPage() {
               <span style={{ ...type.bodySm, color: colors.ink, textAlign: "right" }}>
                 {deliverySummary
                   ? deliverySummary.smile_label
-                  : "—"}
+                  : "n/a"}
                 {deliverySummary && (
                   <span style={{ color: colors.inkMuted, fontFeatureSettings: featNum }}>
                     {" "}({deliverySummary.smile_percentage}% of the time)
@@ -1291,7 +1291,7 @@ export default function InterviewPage() {
                 <div className="flex justify-between mb-1.5" style={{ ...type.bodySm, color: colors.inkMuted }}>
                   <span>{label}</span>
                   <span style={{ color: colors.ink, fontFeatureSettings: featNum }}>
-                    {val == null ? "—" : `${val}%`}
+                    {val == null ? "n/a" : `${val}%`}
                   </span>
                 </div>
                 <div style={{ height: 4, backgroundColor: colors.hairline, borderRadius: radius.full }}>
@@ -1386,9 +1386,9 @@ export default function InterviewPage() {
           )}
 
           <p style={{ ...type.caption, color: colors.inkMuted, marginTop: 16, textAlign: "left" }}>
-            Posture here is shoulder-level only (no back/hip data), and self-touch detection is proximity-based —
+            Posture here is shoulder-level only (no back/hip data), and self-touch detection is proximity-based:
             it flags a hand lingering near your mouth, chin, eyes, or hair, but can&apos;t tell what you were actually
-            doing. Answers below also aren&apos;t scored for content yet — that&apos;s your raw transcript, unscored.
+            doing. Answers below also aren&apos;t scored for content yet. That&apos;s your raw transcript, unscored.
           </p>
 
           {/* Every flagged look-away or sustained head-movement moment for

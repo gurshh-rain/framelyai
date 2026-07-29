@@ -85,7 +85,7 @@ const GOOGLE_SIGN_IN_ENABLED = false;
 function friendlyAuthError(raw: string): string {
   const m = (raw || "").toLowerCase();
   if (m.includes("invalid login credentials")) return "Incorrect email or password.";
-  if (m.includes("email not confirmed")) return "Please confirm your email first — check your inbox for the link we sent.";
+  if (m.includes("email not confirmed")) return "Please confirm your email first. Check your inbox for the link we sent.";
   if (m.includes("user already registered")) return "That email already has an account. Try logging in instead.";
   if (m.includes("password")) return raw; // already specific (too short, etc.)
   if (m.includes("rate limit") || m.includes("email rate")) return "Too many attempts. Wait a minute and try again.";
@@ -188,7 +188,7 @@ function LoginForm() {
         // With email confirmations OFF, Supabase returns a hard error for a
         // duplicate email instead of the obfuscated-user trick below.
         if (error.message.toLowerCase().includes("already registered")) {
-          setNotice("This email already has an account — log in instead.");
+          setNotice("This email already has an account. Log in instead.");
           switchMode("login");
           return;
         }
@@ -204,7 +204,7 @@ function LoginForm() {
       // one reliable signal that this email is already taken.
       const alreadyRegistered = data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0;
       if (alreadyRegistered) {
-        setNotice("This email already has an account — log in instead.");
+        setNotice("This email already has an account. Log in instead.");
         switchMode("login");
         return;
       }

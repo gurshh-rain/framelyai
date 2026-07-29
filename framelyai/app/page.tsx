@@ -202,7 +202,7 @@ const SIGNALS = [
 const FAQS = [
   { q: "How does Framely score my answers?", a: "Two passes: a pose/gaze model reads eye contact, posture, gestures, and expression at 30fps, and a separate language pass checks your transcript for structure, relevance, and filler words. Both feed into one report." },
   { q: "Is my video stored?", a: "Sessions are kept so you can review past reports and track change over time. You can delete any session, or your whole account, at any point." },
-  { q: "Do I need special equipment?", a: "No — a laptop webcam and a normal room light is enough. Framely calibrates to your setup in the first few seconds of a session." },
+  { q: "Do I need special equipment?", a: "No, a laptop webcam and a normal room light is enough. Framely calibrates to your setup in the first few seconds of a session." },
 ];
 
 export default function FramelyLanding() {
@@ -236,10 +236,14 @@ export default function FramelyLanding() {
         .framely-card { transition: background-color 150ms ease; }
       `}</style>
 
-      {/* ============ TOP NAV — {components.top-nav} ============ */}
+      {/* ============ TOP NAV, components.top-nav ============ */}
       <header className="sticky top-0 z-30" style={{ backgroundColor: colors.canvas, borderBottom: `1px solid ${colors.hairlineSoft}` }}>
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between" style={{ height: 64 }}>
-          <span style={{ ...type.headline, fontSize: 18 }}>Framely</span>
+          <span style={{ ...type.headline, fontSize: 18 }} aria-label="Framely" role="img">
+            {/* Plain img so the existing /public/framelyai_logo.png asset renders directly */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/framelyai_logo.png" alt="Framely" style={{ height: 24, width: "auto", display: "block" }} />
+          </span>
           <nav className="hidden md:flex items-center gap-8" style={{ ...type.bodySm, fontWeight: 500 }}>
             <a href="#product" className="framely-nav-link">Product</a>
             <a href="#how" className="framely-nav-link">How it works</a>
@@ -271,8 +275,8 @@ export default function FramelyLanding() {
           How it landed.
         </h1>
         <p style={{ ...type.bodyLg, color: colors.inkMuted, maxWidth: 520, marginTop: 28 }}>
-          Framely scores your mock interview answers twice — once for structure and clarity, once for eye
-          contact, posture, gestures, and expression — and hands you both in a single report.
+          Framely scores your mock interview answers twice: once for structure and clarity, once for eye
+          contact, posture, gestures, and expression, and hands you both in a single report.
         </p>
         <div className="flex flex-wrap items-center gap-3 mt-9">
           <ButtonPrimary href="/interview" style={{ padding: "13px 22px", fontSize: 15 }}>
@@ -358,7 +362,7 @@ export default function FramelyLanding() {
           <SpotlightCard variant="violet" style={{ gridColumn: "1 / -1" }}>
             <div style={{ ...type.caption, opacity: 0.85, marginBottom: 10 }}>Answer content</div>
             <div style={{ ...type.subhead, maxWidth: 560 }}>
-              The score that ties it together — structure, relevance, and filler words, checked against what you actually said.
+              The score that ties it together: structure, relevance, and filler words, checked against what you actually said.
             </div>
             <div className="flex flex-wrap gap-2 mt-6">
               <span style={{ ...type.micro, backgroundColor: "rgba(0,0,0,0.25)", padding: "6px 12px", borderRadius: radius.pill }}>STAR structure: complete</span>
@@ -409,7 +413,7 @@ export default function FramelyLanding() {
             <div style={{ backgroundColor: colors.surface1, borderRadius: radius.md, padding: 24, marginTop: 24 }}>
               <div style={{ ...type.caption, color: colors.inkMuted, marginBottom: 8 }}>A note on scoring</div>
               <p style={{ ...type.body, color: colors.inkMuted }}>
-                Your first session sets a personal baseline before anything gets scored — natural eye contact
+                Your first session sets a personal baseline before anything gets scored. Natural eye contact
                 varies person to person, and Framely calibrates to you, not a universal average.
               </p>
             </div>
@@ -493,7 +497,7 @@ export default function FramelyLanding() {
           <h2 style={{ ...type.displayLG, fontSize: "clamp(2rem, 4vw, 3rem)" }}>Your next interview has a camera in the room.</h2>
           <p style={{ ...type.bodyLg, opacity: 0.9, marginTop: 12 }}>Get comfortable with the one that's actually paying attention.</p>
           <ButtonPrimary href="/interview" style={{ padding: "13px 24px", fontSize: 15, marginTop: 28 }}>
-            Start practicing — it's free <ArrowRight size={16} />
+            Start practicing, it's free <ArrowRight size={16} />
           </ButtonPrimary>
         </SpotlightCard>
       </section>
